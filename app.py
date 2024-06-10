@@ -79,17 +79,23 @@ def main():
         sns.lineplot(x="date", y="error_sum", data=global_df, ax=ax, color='red', label='Errors per round', linewidth=0.5)
         sns.lineplot(x="date", y=global_df["error_sum"].rolling(window=5).mean(), 
                         data=global_df, ax=ax,color='red', label=f"Rolling mean", linestyle='--')
+        
         ax.tick_params(axis='x', labelrotation=45)
         st.pyplot(fig)
 
     
         fig1, ax1 = plt.subplots()
         global_df[["date", "3 putt", "<150 miss", "p5 bogey", "double bogey", "2 chip", "mental errors"]].plot(
-            kind='bar', stacked=True, ax=ax1, alpha=0.5) # , 
+            kind='bar', stacked=True, ax=ax1, alpha=0.5) 
         plot_df = global_df[["date", '18H score']]
         rolling_mean = plot_df['18H score'].rolling(window=5).mean()
+        error_rolling_std = plot_df["18H score"].rolling(window=5).std()
         ax1.plot(global_df["18H score"], color='black',label='18H score', alpha=1.0)
         ax1.plot(rolling_mean, color='red',label='rolling mean', alpha=1.0)
+        ax1.plot(rolling_mean+error_rolling_std, color='black', linestyle=':', label=f"Rolling std", alpha=0.5)
+        ax1.plot(rolling_mean-error_rolling_std, color='black', linestyle=':', alpha=0.5)
+        ax1.grid()
+
         ax1.set_xticklabels(global_df["date"])
         ax1.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncols=4)
         ax1.set_xlabel('Date')
