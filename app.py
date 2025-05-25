@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np  
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+from datetime import datetime
 
 
 def parse_date(fname:str):
@@ -13,6 +14,24 @@ def parse_date(fname:str):
     date = fname.split('_')[1].split('.')[0]
     date = pd.to_datetime(date, format='ISO8601', errors='coerce').strftime('%Y-%m-%d')
     return date
+
+
+def calculate_best_eight_of_twenty(series):
+    """
+    Calculate the average of the best 8 values from the last 20 values
+    """
+    if len(series) < 20:
+        return pd.Series([np.nan] * len(series))
+    
+    result = pd.Series(index=series.index, dtype=float)
+    for i in range(len(series)):
+        if i < 19:  # Not enough data for first 19 points
+            result.iloc[i] = np.nan
+        else:
+            last_20 = series.iloc[i-19:i+1]
+            best_8 = last_20.nsmallest(8)
+            result.iloc[i] = best_8.mean()
+    return result
 
 
 def main():
@@ -58,17 +77,22 @@ def main():
                 continue
             plot_df = global_df[["date", col]]
             rolling_mean = plot_df[col].rolling(window=5).mean()
+            best_eight_avg = calculate_best_eight_of_twenty(plot_df[col])
             global_mean = plot_df[col].mean()
             fig, ax = plt.subplots()
             ax.bar(x=plot_df["date"], height=plot_df[col], color='blue')
             sns.lineplot(x="date", y=rolling_mean, 
                         data=plot_df, ax=ax,color='red',
                         label=f"Rolling mean (5 rounds):{rolling_mean.mean():.1f}", linestyle='--')
+            sns.lineplot(x="date", y=best_eight_avg,
+                        data=plot_df, ax=ax, color='green',
+                        label=f"Best 8 of 20 avg:{best_eight_avg.mean():.1f}", linestyle='-')
             sns.lineplot(x="date", y=global_mean, 
                         data=plot_df, ax=ax,color='black', linestyle=':', label=f"Global mean:{global_mean.mean():.1f}")
             sns.lineplot(x="date", y=mean_and_goal.loc[col, "target"], 
                         data=plot_df, ax=ax,color='gold', linestyle='-.', 
                         label=f"Target:{mean_and_goal.loc[col, 'target']:.1f}", linewidth=3.)
+            ax.axvline(x=datetime(2025, 1, 1), color='red', linestyle='--', alpha=0.5, label='2025')
             ax.legend()
             ax.tick_params(axis='x', labelrotation=45)
             ax.yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -79,7 +103,11 @@ def main():
         sns.lineplot(x="date", y="error_sum", data=global_df, ax=ax, color='red', label='Errors per round', linewidth=0.5)
         sns.lineplot(x="date", y=global_df["error_sum"].rolling(window=5).mean(), 
                         data=global_df, ax=ax,color='red', label=f"Rolling mean", linestyle='--')
-        
+        best_eight_avg = calculate_best_eight_of_twenty(global_df["error_sum"])
+        sns.lineplot(x="date", y=best_eight_avg,
+                    data=global_df, ax=ax, color='green',
+                    label=f"Best 8 of 20 avg:{best_eight_avg.mean():.1f}", linestyle='-')
+        ax.axvline(x=datetime(2025, 1, 1), color='red', linestyle='--', alpha=0.5, label='2025')
         ax.tick_params(axis='x', labelrotation=45)
         st.pyplot(fig)
 
@@ -89,11 +117,14 @@ def main():
             kind='bar', stacked=True, ax=ax1, alpha=0.5) 
         plot_df = global_df[["date", '18H score']]
         rolling_mean = plot_df['18H score'].rolling(window=5).mean()
+        best_eight_avg = calculate_best_eight_of_twenty(plot_df['18H score'])
         error_rolling_std = plot_df["18H score"].rolling(window=5).std()
         ax1.plot(global_df["18H score"], color='black',label='18H score', alpha=1.0)
         ax1.plot(rolling_mean, color='red',label='rolling mean', alpha=1.0)
+        ax1.plot(best_eight_avg, color='green',label='Best 8 of 20 avg', alpha=1.0)
         ax1.plot(rolling_mean+error_rolling_std, color='black', linestyle=':', label=f"Rolling std", alpha=0.5)
         ax1.plot(rolling_mean-error_rolling_std, color='black', linestyle=':', alpha=0.5)
+        ax1.axvline(x=datetime(2025, 1, 1), color='red', linestyle='--', alpha=0.5, label='2025')
         ax1.grid()
 
         ax1.set_xticklabels(global_df["date"])
@@ -107,6 +138,7 @@ def main():
         global_df_normalise[['3 putt', '<150 miss', 'p5 bogey', 'double bogey', '2 chip', 'mental errors']] = global_df_normalise[['3 putt', '<150 miss', 'p5 bogey', 'double bogey', '2 chip', 'mental errors']].div(global_df_normalise[['3 putt', '<150 miss', 'p5 bogey', 'double bogey', '2 chip', 'mental errors']].sum(axis=1), axis=0)
         global_df_normalise[["date", "3 putt", "<150 miss", "p5 bogey", "double bogey", "2 chip", "mental errors"]].plot(
             kind='bar', stacked=True, ax=ax2, alpha=0.5) 
+        ax2.axvline(x=datetime(2025, 1, 1), color='red', linestyle='--', alpha=0.5, label='2025')
         ax2.set_xticklabels(global_df["date"])
         ax2.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncols=4)
         ax2.set_xlabel('Date')
